@@ -1,4 +1,8 @@
+import utils.FileUtils;
+import utils.StringUtils;
+
 import java.io.File;
+import java.io.IOException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -16,10 +20,11 @@ public class MainFilesCopy {
     };
 
     public static void main(String[] args) {
-        System.out.println(args.length);
         MainFilesCopy filesCopy = new MainFilesCopy();
         if (filesCopy.checkArgs(args)) {
-            filesCopy.copyFile(args[0], args[1], args.length >= 3 ? Integer.parseInt(args[2]) : 0);
+            StringBuilder copyLog = new StringBuilder();
+            filesCopy.copyFile(args[0], args[1], args.length >= 3 ? Integer.parseInt(args[2]) : 0,copyLog);
+            filesCopy.print(copyLog.toString());
         }
     }
 
@@ -50,60 +55,80 @@ public class MainFilesCopy {
         Pattern pattern = Pattern.compile("\\[.*?\\]");
         for (String desc : argsUsage) {
             Matcher matcher = pattern.matcher(desc);
-            if (matcher.matches()) {
+            if (matcher.find()) {
                 defaultArgsNum++;
             }
         }
         return defaultArgsNum;
     }
 
-    public boolean copyFile(String localDir, String remoteDir, int mode) {
+    public boolean copyFile(String localDir, String remoteDir, int mode, StringBuilder copyLog) {
         boolean result = false;
         switch (mode) {
             case 1:
-                result = copyFile(localDir, remoteDir);
-                result = result && copyFile(remoteDir, localDir);
+                result = copyFile(localDir, remoteDir,copyLog);
+                result = result && copyFile(remoteDir, localDir,copyLog);
                 break;
             case 0:
             default:
-                result = copyFile(localDir, remoteDir);
+                result = copyFile(localDir, remoteDir,copyLog);
                 break;
         }
         return result;
     }
 
-    public boolean copyFile(String localDir, String remoteDir) {
-        if (StringUtils.isEmpty(localDir)) {
-            print("copyFile when localDir Empty");
+    public boolean copyFile(String localPath, String remotePath,StringBuilder copyLog) {
+        if (StringUtils.isEmpty(localPath)) {
+            copyLog.append("copyFile localPath Empty");
             return false;
         }
-        if (StringUtils.isEmpty(remoteDir)) {
-            print("copyFile when srcDir Empty");
+        if (StringUtils.isEmpty(remotePath)) {
+            copyLog.append("copyFile srcDir Empty");
             return false;
         }
-        File local = new File(localDir);
-        File remote = new File(remoteDir);
-        if (local.isDirectory()) {
-            print("copyFile when local not Directory:" + localDir);
+
+        File local = new File(localPath);
+        File remote = new File(remotePath);
+
+        if (!remote.exists()) {
+            copyLog.append("copyFile remote not exists:" + remotePath+"\n\r");
             return false;
         }
+
+        if (isIgnoreFile(remote.getName())){
+            return false;
+        }
+
         if (remote.isDirectory()) {
-            print("copyFile when remote not Directory:" + remoteDir);
-            return false;
-        }
-        String[] localfiles = local.list();
-        String[] remoteFiles = remote.list();
-        for (String remoteName: remoteFiles) {
-            boolean exist = false;
-            for(String localName:localfiles){
-                if(localName.equals(remoteName)){
-                    exist = true;
-                    break;
+            if (!local.exists()) {
+                local.mkdir();
+                copyLog.append("mkdir:"+ remotePath+"\n\r");
+            }
+            String[] remoteFiles = remote.list();
+            for (String remoteName : remoteFiles) {
+                copyFile(localPath + File.separator + remoteName, remotePath +File.separator+remoteName,copyLog);
+            }
+        } else {
+            if (!local.exists()) {
+                try {
+                    FileUtils.copyFile(remote, local);
+                    copyLog.append("copy:"+ remotePath+"\n\r");
+                } catch (IOException e) {
+                    e.printStackTrace();
                 }
             }
-            if(!exist){
-                File srcFile = new File(remo)
-            }
+        }
+        return true;
+    }
+
+    /**
+     * 需要忽略拷贝的文件在此添加case
+     * @param fileName
+     * @return
+     */
+    private boolean isIgnoreFile(String fileName){
+        if(!fileName.isEmpty() && fileName.startsWith(".")){
+            return true;
         }
         return false;
     }
